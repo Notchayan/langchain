@@ -1,5 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from langchain.agents import create_csv_agent
 from langchain.llms import OpenAI
 from dotenv import load_dotenv
@@ -12,50 +14,13 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI()
 
+# Set up templates and static files
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Ask your CSV</title>
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 20px;
-            }
-            h1 {
-                color: #333;
-            }
-            form {
-                margin-bottom: 20px;
-            }
-            input[type="text"], input[type="file"], input[type="submit"] {
-                margin-top: 10px;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Ask your CSV 📈</h1>
-        <form action="/upload/" method="post" enctype="multipart/form-data">
-            <label for="file">Upload a CSV file:</label>
-            <input type="file" name="file" accept=".csv" required><br><br>
-
-            <label for="question">Ask a question about your CSV:</label>
-            <input type="text" name="question" required><br><br>
-
-            <input type="submit" value="Submit">
-        </form>
-        {% if answer %}
-            <h2>Answer:</h2>
-            <p>{{ answer }}</p>
-        {% endif %}
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/upload/")
 async def upload_file(
@@ -63,8 +28,10 @@ async def upload_file(
     file: UploadFile = File(...), 
     question: str = Form(...)
 ):
-    if os.getenv("OPENAI_API_KEY") is None or os.getenv("OPENAI_API_KEY") == "":
-        return HTMLResponse(content="OPENAI_API_KEY is not set")
+    OPENAI_API_KEY = "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"
+
+    if not OPENAI_API_KEY:
+        return {"error": "OPENAI_API_KEY is not set"}
 
     # Create the agent using the uploaded CSV file
     agent = create_csv_agent(OpenAI(temperature=0), file.file, verbose=True)
@@ -72,47 +39,46 @@ async def upload_file(
     # Run the agent with the user's question
     answer = agent.run(question)
 
-    # Render the HTML response with the answer
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Ask your CSV</title>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                margin: 20px;
-            }}
-            h1 {{
-                color: #333;
-            }}
-            form {{
-                margin-bottom: 20px;
-            }}
-            input[type="text"], input[type="file"], input[type="submit"] {{
-                margin-top: 10px;
-            }}
-        </style>
-    </head>
-    <body>
-        <h1>Ask your CSV 📈</h1>
-        <form action="/upload/" method="post" enctype="multipart/form-data">
-            <label for="file">Upload a CSV file:</label>
-            <input type="file" name="file" accept=".csv" required><br><br>
+    return templates.TemplateResponse("index.html", {"request": request, "answer": answer})
 
-            <label for="question">Ask a question about your CSV:</label>
-            <input type="text" name="question" required><br><br>
-
-            <input type="submit" value="Submit">
+# HTML code embedded as a string
+html_content = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask your CSV</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+</head>
+<body>
+    <div class="ui container">
+        <h2>Ask your CSV 📈</h2>
+        <form action="/upload/" method="post" enctype="multipart/form-data" class="ui form">
+            <div class="field">
+                <label for="file">Upload CSV File</label>
+                <input type="file" name="file" accept=".csv" required>
+            </div>
+            <div class="field">
+                <label for="question">Ask a question about your CSV</label>
+                <input type="text" name="question" required>
+            </div>
+            <button type="submit" class="ui button">Submit</button>
         </form>
-        <h2>Answer:</h2>
-        <p>{answer}</p>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+        {% if answer %}
+        <div class="ui message">
+            <h3>Answer:</h3>
+            <p>{{ answer }}</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
+"""
+
+# Write HTML to a file
+with open("templates/index.html", "w") as f:
+    f.write(html_content)
 
 if __name__ == "__main__":
     import uvicorn

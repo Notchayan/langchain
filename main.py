@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from langchain.agents import create_csv_agent
+from langchain_experimental.agents import create_csv_agent  # Updated import
 from langchain.llms import OpenAI
 from dotenv import load_dotenv
 import os
@@ -28,7 +28,7 @@ async def upload_file(
     file: UploadFile = File(...), 
     question: str = Form(...)
 ):
-    OPENAI_API_KEY = "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"
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # Use environment variable
 
     if not OPENAI_API_KEY:
         return {"error": "OPENAI_API_KEY is not set"}
@@ -76,7 +76,10 @@ html_content = """
 </html>
 """
 
-# Write HTML to a file
+# Write HTML to a file (only if it doesn't exist)
+if not os.path.exists("templates"):
+    os.makedirs("templates")
+
 with open("templates/index.html", "w") as f:
     f.write(html_content)
 

@@ -1,12 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from langchain_experimental.agents import create_csv_agent  # Updated import
+from langchain.agents import create_csv_agent  # Use the correct import
 from langchain.llms import OpenAI
 from dotenv import load_dotenv
 import os
-from fastapi import Request
 
 # Load environment variables
 load_dotenv()
@@ -33,11 +32,14 @@ async def upload_file(
     if not OPENAI_API_KEY:
         return {"error": "OPENAI_API_KEY is not set"}
 
-    # Create the agent using the uploaded CSV file
-    agent = create_csv_agent(OpenAI(temperature=0), file.file, verbose=True)
+    try:
+        # Create the agent using the uploaded CSV file
+        agent = create_csv_agent(OpenAI(temperature=0), file.file, verbose=True)
 
-    # Run the agent with the user's question
-    answer = agent.run(question)
+        # Run the agent with the user's question
+        answer = agent.run(question)
+    except Exception as e:
+        return {"error": str(e)}
 
     return templates.TemplateResponse("index.html", {"request": request, "answer": answer})
 
